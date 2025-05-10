@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { Tractor, Clock, AlertTriangle, CheckCircle, PenToolIcon as Tool, Bell } from "lucide-react"
 import Link from "next/link"
 import DashboardHeader from "@/components/dashboard-header"
+import { utilities } from "@/utils/utilities"
 
 export default function DashboardPage() {
   return (
@@ -69,12 +70,7 @@ export default function DashboardPage() {
           </TabsList>
           <TabsContent value="tractors">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {[
-                { id: "TR-001", name: "John Deere 5E", hours: 52, lastService: "2023-04-15", status: "good" },
-                { id: "TR-002", name: "Massey Ferguson 240", hours: 58, lastService: "2023-04-02", status: "warning" },
-                { id: "TR-003", name: "New Holland TD5.90", hours: 23, lastService: "2023-05-10", status: "good" },
-                { id: "TR-004", name: "Kubota M7060", hours: 62, lastService: "2023-03-20", status: "critical" },
-              ].map((tractor) => (
+              {utilities.map((tractor) => (
                 <Card key={tractor.id} className="overflow-hidden">
                   <CardHeader className="bg-orange-50 pb-2">
                     <div className="flex justify-between items-center">
