@@ -1,6 +1,7 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -9,44 +10,22 @@ import { Progress } from "@/components/ui/progress"
 import { Clock, PenToolIcon as Tool, Calendar, AlertTriangle, CheckCircle, ArrowLeft, BarChart3 } from "lucide-react"
 import Link from "next/link"
 import DashboardHeader from "@/components/dashboard-header"
+import { utilities } from "@/utils/utilities"
 
 export default function TractorDetailsPage({ params }: { params: { id: string } }) {
-  const [tractorData] = useState({
-    id: params.id,
-    name: "John Deere 5E",
-    status: "warning",
-    hours: 58,
-    lastService: "2023-04-02",
-    nextService: "2023-06-15",
-    purchaseDate: "2022-01-15",
-    owner: "John Doe",
-    location: "North Farm",
-    serviceHistory: [
-      {
-        id: "SVC-001",
-        date: "2023-04-02",
-        technician: "Mike Johnson",
-        hours: 0,
-        notes: "Regular maintenance, oil change, filter replacement",
-      },
-      {
-        id: "SVC-002",
-        date: "2023-01-10",
-        technician: "Sarah Williams",
-        hours: 0,
-        notes: "Brake adjustment, hydraulic system check",
-      },
-      {
-        id: "SVC-003",
-        date: "2022-10-05",
-        technician: "David Brown",
-        hours: 0,
-        notes: "Engine tune-up, replaced air filter",
-      },
-    ],
-    upcomingServices: [{ id: "USVC-001", date: "2023-06-15", type: "Regular Maintenance", status: "scheduled" }],
-  })
+    const [tractorData, setTractorData] = useState<any | null>(null);
+  useEffect(() => {
+    const tractor = utilities.find((u) => u.id === params.id);
+    if (tractor) {
+      setTractorData(tractor);
+    } else {
+      console.error(`Tractor with ID ${params.id} not found.`);
+    }
+  }, [params.id]);
 
+  if (!tractorData) {
+    return <div>Error: Tractor not found or data is missing.</div>;
+  }
   return (
     <div className="min-h-screen bg-gray-50">
       <DashboardHeader />
@@ -185,7 +164,7 @@ export default function TractorDetailsPage({ params }: { params: { id: string } 
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {tractorData.serviceHistory.map((service) => (
+                  {tractorData.serviceHistory.map((service:any) => (
                     <div key={service.id} className="flex items-start p-4 border rounded-lg">
                       <div className="mr-4">
                         <CheckCircle className="h-8 w-8 text-green-500" />
@@ -216,7 +195,7 @@ export default function TractorDetailsPage({ params }: { params: { id: string } 
               <CardContent>
                 {tractorData.upcomingServices.length > 0 ? (
                   <div className="space-y-4">
-                    {tractorData.upcomingServices.map((service) => (
+                    {tractorData.upcomingServices.map((service:any) => (
                       <div key={service.id} className="flex items-start p-4 border rounded-lg">
                         <div className="mr-4">
                           <Calendar className="h-8 w-8 text-orange-500" />
