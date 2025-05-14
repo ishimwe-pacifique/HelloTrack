@@ -21,9 +21,9 @@ export default function DashboardHeader() {
 
   const navItems = [
     { name: "Dashboard", href: "/dashboard", icon: Home },
-    { name: "QR Codes", href: "/qr-codes", icon: QrCode },
+    { name: "QR Codes Scanner", href: "/qr-scanner", icon: QrCode },
     { name: "Service Requests", href: "/service-requests", icon: ClipboardList },
-    { name: "Technicians", href: "/technicians", icon: Users },
+    { name: "Technicians", href: "/technician", icon: Users },
     { name: "Analytics", href: "/analytics", icon: BarChart3 },
     { name: "Settings", href: "/settings", icon: Settings },
   ]
