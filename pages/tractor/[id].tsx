@@ -11,17 +11,23 @@ import { Clock, PenToolIcon as Tool, Calendar, AlertTriangle, CheckCircle, Arrow
 import Link from "next/link"
 import DashboardHeader from "@/components/dashboard-header"
 import { utilities } from "@/utils/utilities"
+import { useRouter } from "next/router"
 
-export default function TractorDetailsPage({ params }: { params: { id: string } }) {
-    const [tractorData, setTractorData] = useState<any | null>(null);
-  useEffect(() => {
-    const tractor = utilities.find((u) => u.id === params.id);
+export default function TractorDetailsPage() {
+    const router = useRouter();
+  const { id } = router.query;  
+  const [tractorData, setTractorData] = useState<any | null>(null);
+        console.log(id)
+        console.log("====================")
+useEffect(() => {
+    const tractor = utilities.find((u) => u.id === id);
+
     if (tractor) {
-      setTractorData(tractor);
+        setTractorData(tractor);
     } else {
-      console.error(`Tractor with ID ${params.id} not found.`);
+        console.error(`Tractor with ID ${id} not found.`);
     }
-  }, [params.id]);
+}, [id]);
 
   if (!tractorData) {
     return <div>Error: Tractor not found or data is missing.</div>;
@@ -136,7 +142,7 @@ export default function TractorDetailsPage({ params }: { params: { id: string } 
               <CardTitle className="text-sm font-medium">Total Services</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="font-medium">{tractorData.serviceHistory.length}</div>
+              <div className="font-medium">{tractorData?.serviceHistory?.length || 0}</div>
             </CardContent>
           </Card>
         </div>
