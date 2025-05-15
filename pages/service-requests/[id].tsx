@@ -2,7 +2,6 @@
 "use client"
 
 import { useState } from "react"
-import { useParams, useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -33,10 +32,11 @@ import {
 import Link from "next/link"
 import DashboardHeader from "@/components/dashboard-header"
 import { useNotification } from "@/components/notification-provider"
+import { useRouter } from "next/router"
 
 export default function ServiceRequestDetailPage() {
-  const params = useParams()
   const router = useRouter()
+  const { id } = router.query;  
   const { showNotification } = useNotification()
   const [activeTab, setActiveTab] = useState("details")
   const [statusUpdate, setStatusUpdate] = useState("")
@@ -45,7 +45,7 @@ export default function ServiceRequestDetailPage() {
 
   // Mock data for a service request - in a real app, this would be fetched from an API
   const [serviceRequest, setServiceRequest] = useState({
-    id: params.id as string,
+    id: id as string,
     tractor: "Massey Ferguson 240",
     tractorId: "TR-002",
     owner: {

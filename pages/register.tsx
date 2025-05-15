@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-"use client"
 
 import type React from "react"
 
@@ -15,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Tractor, User, Mail, Lock, Phone, AlertCircle } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import LoginPage from "./login"
 
 export default function RegisterPage() {
   const router = useRouter()
@@ -92,7 +91,7 @@ export default function RegisterPage() {
 
         <Tabs defaultValue="register" className="w-full">
           <TabsList className="grid w-full grid-cols-2 mb-6">
-            <TabsTrigger value="login" onClick={() => router.push("/login")}>
+            <TabsTrigger value="login">
               Login
             </TabsTrigger>
             <TabsTrigger value="register">Register</TabsTrigger>
@@ -258,6 +257,7 @@ export default function RegisterPage() {
               </Link>
             </div>
           </TabsContent>
+             <TabsContent value="login"><LoginPage/></TabsContent>
         </Tabs>
       </div>
     </div>
