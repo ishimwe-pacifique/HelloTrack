@@ -62,21 +62,29 @@ export default function RegisterPage() {
     }
 
     try {
-      // In a real app, this would be an API call to register the user
-      await new Promise((resolve) => setTimeout(resolve, 1500))
+    const response = await fetch('/api/users', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(formData),
+    })
 
-      // Simulate successful registration
-      setSuccess("Registration successful! Redirecting to login...")
+    const data = await response.json()
 
-      // Redirect to login after a delay
+    if (!response.ok) {
+      setError(data.error || 'An error occurred during registration. Please try again.')
+    } else {
+      setSuccess('Registration successful! Redirecting to login...')
       setTimeout(() => {
-        router.push("/login")
+        router.push('/login')
       }, 2000)
-    } catch (err) {
-      setError(err + "An error occurred during registration. Please try again.")
-    } finally {
-      setIsLoading(false)
     }
+  } catch (err) {
+    setError('An error occurred during registration. Please try again.' + err)  
+  } finally {
+    setIsLoading(false)
+  }
   }
 
   return (

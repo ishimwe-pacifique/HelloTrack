@@ -12,26 +12,95 @@ import Link from "next/link"
 import DashboardHeader from "@/components/dashboard-header"
 import { utilities } from "@/utils/utilities"
 import { useRouter } from "next/router"
+import axios from "axios"
+interface TractorOwner {
+  _id?: string; // Adding an ID for fetched data
+  name: string;
+  phoneNumber: string;
+  email: string;
+  physicalAddress: string;
+  location: string;
+  assignedTractor: string;
+  newRegistrationNumber: string;
+  tractorId: string;
+  welcomeEmailStatus: string;
+}
 
 export default function TractorDetailsPage() {
     const router = useRouter();
-  const { id } = router.query;  
+ const [tractorId, setTractorId] = useState<string | undefined>(undefined); // State to store tractorId
+  const [qrCodeValue, setQrCodeValue] = useState<Record<string, string>>({});
   const [tractorData, setTractorData] = useState<any | null>(null);
-        console.log(id)
-        console.log("====================")
-useEffect(() => {
-    const tractor = utilities.find((u) => u.id === id);
+  const [tractorOwner, setTractorOwner] = useState<TractorOwner>();
 
-    if (tractor) {
-        setTractorData(tractor);
-    } else {
-        console.error(`Tractor with ID ${id} not found.`);
+  // Wait for `router.isReady` to get `tractorId`
+  useEffect(() => {
+    if (router.isReady) {
+      const { tractorId } = router.query;
+      console.log("Tractor ID:", tractorId); // Debug log
+      setTractorId(tractorId as string); // Set the tractorId in state
     }
-}, [id]);
+  }, [router.isReady, router.query]);
+
+  // Fetch QR Code
+  useEffect(() => {
+    if (tractorId) {
+      const fetchQRCode = async () => {
+        try {
+          const response = await axios.get("/api/save-qr-code", {
+            params: { tractorId },
+          });
+
+          if (response.data?.qrCodeValue) {
+            setQrCodeValue(response.data.qrCodeValue);
+          } else {
+            console.error("No QR Code found for tractor:", tractorId);
+          }
+        } catch (error) {
+          console.error("Error fetching QR Code:", error);
+        }
+      };
+
+      fetchQRCode();
+    }
+  }, [tractorId]);
+
+  // Fetch Tractor Data
+  useEffect(() => {
+    if (tractorId) {
+      const tractor = utilities.find((u) => u.id === tractorId);
+
+      if (tractor) {
+        setTractorData(tractor);
+      } else {
+        console.error(`Tractor with ID ${tractorId} not found.`);
+      }
+    }
+  }, [tractorId]);
+
+   useEffect(() => {
+    const fetchTractorOwners = async () => {
+      try {
+  const response = await axios.get("/api/tractor-owners", {
+            params: { tractorId },
+          });
+        setTractorOwner(response.data.data); // Assuming API returns a list of tractor owners
+      } catch (error: any) {
+        console.error("Error fetching tractor owners:", error);
+      }
+    };
+
+    fetchTractorOwners();
+  }, []);
+
+  if (!tractorId) {
+    return <div>Loading tractor details...</div>; // Show loading state while waiting for router.query
+  }
 
   if (!tractorData) {
-    return <div>Error: Tractor not found or data is missing.</div>;
+    return <div>Loading tractor data...</div>; // Show loading state while waiting for tractorData
   }
+  console.log(qrCodeValue)
   return (
     <div className="min-h-screen bg-gray-50">
       <DashboardHeader />
@@ -44,8 +113,8 @@ useEffect(() => {
             </Button>
           </Link>
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">{tractorData.name}</h1>
-            <p className="text-gray-600">ID: {tractorData.id}</p>
+            <h1 className="text-3xl font-bold text-gray-900">{tractorOwner?.name}</h1>
+            <p className="text-gray-600">ID: {tractorOwner?.tractorId}</p>
           </div>
         </div>
 
