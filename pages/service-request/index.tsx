@@ -4,7 +4,6 @@
 import type React from "react";
 
 import { useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
 import {
   Card,
   CardContent,
@@ -24,30 +23,16 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { CalendarIcon, ArrowLeft, CheckCircle, Plus } from "lucide-react";
-import { Calendar } from "@/components/ui/calendar";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { format } from "date-fns";
+import { ArrowLeft, CheckCircle, Plus } from "lucide-react";
+
 import Link from "next/link";
 import DashboardHeader from "@/components/dashboard-header";
 import axios from "axios";
 
 export default function ServiceRequestPage() {
-  const searchParams = useSearchParams();
-  const tractorId = searchParams.get("tractor") || "";
-
-  const [date, setDate] = useState<Date>();
   const [submitted, setSubmitted] = useState(false);
   const [formData, setFormData] = useState({
-    tractorId: tractorId,
-    serviceType: "",
-    description: "",
-    urgency: "",
-    preferredTime: "",
+    tractorId: "",
     additionalNotes: "",
     partsNeeded: false,
   });
@@ -64,6 +49,14 @@ export default function ServiceRequestPage() {
     date: "",
     description: "",
   });
+  const [allocatedHours, setAllocatedHours] = useState(0);
+
+  // Handler for updating allocated hours
+  const handleAllocateHours = (newHours: number) => {
+    if (newHours >= 0 && newHours <= 60) {
+      setAllocatedHours(newHours);
+    }
+  };
 
   // Handlers for adding new items
   const handleAddServiceHistory = () => {
@@ -75,29 +68,73 @@ export default function ServiceRequestPage() {
     setUpcomingServices((prev) => [...prev, newUpcomingService]);
     setNewUpcomingService({ date: "", description: "" }); // Reset input
   };
-  // Fetch tractor owners
   useEffect(() => {
-    const fetchTractorOwners = async () => {
+    const fetchData = async () => {
       try {
-        const response = await axios.get("/api/tractor-owners");
-        console.log(response.data.data);
-        setTractorOwners(response.data.data);
-      } catch (error: any) {
-        console.error("Error fetching tractor owners:", error);
+        const endpoint = formData.tractorId
+          ? `/api/tractor-owners?tractorId=${formData.tractorId}`
+          : "/api/tractor-owners";
+        const response = await axios.get(endpoint);
+
+        if (formData.tractorId) {
+          const tractorInfo = response.data.data?.tractorInfo || {};
+          const {
+            hours = 0,
+            serviceHistory = [],
+            upcomingServices = [],
+            additionalNotes = "",
+            partsNeeded = false,
+          } = tractorInfo;
+
+          setAllocatedHours(hours);
+          setServiceHistories(serviceHistory);
+          setUpcomingServices(upcomingServices);
+          setFormData((prev) => ({
+            ...prev,
+            additionalNotes,
+            partsNeeded,
+          }));
+        } else {
+          setTractorOwners(response.data.data);
+        }
+      } catch (error) {
+        console.error("Error fetching tractor data:", error);
       }
     };
-    fetchTractorOwners();
-  }, []);
+
+    fetchData();
+  }, [formData.tractorId]);
+
   const handleChange = (field: string, value: string | boolean) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // In a real app, this would submit the form data to an API
-    setTimeout(() => {
+    if (!formData.tractorId) {
+      alert("Please select a tractor ID.");
+      return;
+    }
+
+    try {
+      const payload = {
+        ...formData,
+        tractorInfo: {
+          hours: allocatedHours,
+          serviceHistory: serviceHistories,
+          upcomingServices: upcomingServices,
+          additionalNotes: formData.additionalNotes,
+          partsNeeded: formData.partsNeeded,
+        },
+      };
+      await axios.put(
+        `/api/tractor-owners?tractorId=${formData.tractorId}`,
+        payload
+      );
       setSubmitted(true);
-    }, 1000);
+    } catch (error) {
+      console.error("Error submitting service request:", error);
+    }
   };
 
   if (submitted) {
@@ -132,7 +169,7 @@ export default function ServiceRequestPage() {
       </div>
     );
   }
-
+  console.log(tractorOwners);
   return (
     <div className="min-h-screen bg-gray-50">
       <DashboardHeader />
@@ -178,155 +215,13 @@ export default function ServiceRequestPage() {
                     <SelectContent>
                       {tractorOwners.map((owner) => (
                         <SelectItem key={owner._id} value={owner.tractorId}>
-                          {owner.tractorId}
+                          {owner.name} - {owner.tractorId}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
 
-                <div className="space-y-2 w-full">
-                  <Label htmlFor="service-type">Service Type</Label>
-                  <Select
-                    value={formData.serviceType}
-                    onValueChange={(value) =>
-                      handleChange("serviceType", value)
-                    }
-                    required
-                  >
-                    <SelectTrigger id="service-type">
-                      <SelectValue placeholder="Select service type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="regular">
-                        Regular Maintenance
-                      </SelectItem>
-                      <SelectItem value="repair">Repair</SelectItem>
-                      <SelectItem value="inspection">Inspection</SelectItem>
-                      <SelectItem value="emergency">
-                        Emergency Service
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2 w-full">
-                  <Label htmlFor="description">Description</Label>
-                  <Textarea
-                    id="description"
-                    value={formData.description}
-                    onChange={(e) =>
-                      handleChange("description", e.target.value)
-                    }
-                    placeholder="Describe the issue or service needed"
-                    required
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-2 w-full">
-                    <Label htmlFor="urgency">Urgency</Label>
-                    <Select
-                      value={formData.urgency}
-                      onValueChange={(value) => handleChange("urgency", value)}
-                      required
-                    >
-                      <SelectTrigger id="urgency">
-                        <SelectValue placeholder="Select urgency" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="low">
-                          Low - Within 2 weeks
-                        </SelectItem>
-                        <SelectItem value="medium">
-                          Medium - Within 1 week
-                        </SelectItem>
-                        <SelectItem value="high">
-                          High - Within 48 hours
-                        </SelectItem>
-                        <SelectItem value="critical">
-                          Critical - Immediate
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2 w-full">
-                    <Label>Preferred Date</Label>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className="w-full justify-start text-left font-normal"
-                        >
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {date ? (
-                            format(date, "PPP")
-                          ) : (
-                            <span>Pick a date</span>
-                          )}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0">
-                        <Calendar
-                          mode="single"
-                          selected={date}
-                          onSelect={setDate}
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-                </div>
-
-                <div className="space-y-2 w-full">
-                  <Label htmlFor="preferred-time">Preferred Time</Label>
-                  <Select
-                    value={formData.preferredTime}
-                    onValueChange={(value) =>
-                      handleChange("preferredTime", value)
-                    }
-                  >
-                    <SelectTrigger id="preferred-time">
-                      <SelectValue placeholder="Select preferred time" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="morning">
-                        Morning (8AM - 12PM)
-                      </SelectItem>
-                      <SelectItem value="afternoon">
-                        Afternoon (12PM - 4PM)
-                      </SelectItem>
-                      <SelectItem value="evening">
-                        Evening (4PM - 8PM)
-                      </SelectItem>
-                      <SelectItem value="any">Any Time</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="parts"
-                    checked={formData.partsNeeded}
-                    onCheckedChange={(checked) =>
-                      handleChange("partsNeeded", checked as boolean)
-                    }
-                  />
-                  <Label htmlFor="parts">Replacement parts may be needed</Label>
-                </div>
-
-                <div className="space-y-2 w-full">
-                  <Label htmlFor="additional-notes">Additional Notes</Label>
-                  <Textarea
-                    id="additional-notes"
-                    value={formData.additionalNotes}
-                    onChange={(e) =>
-                      handleChange("additionalNotes", e.target.value)
-                    }
-                    placeholder="Any additional information that might be helpful"
-                  />
-                </div>
                 <div className="space-y-4">
                   <Label htmlFor="additional-notes">Add Service History</Label>
                   <div className="md:flex grid justify-between place-items-center gap-4">
@@ -364,7 +259,10 @@ export default function ServiceRequestPage() {
                     </div>
                     <Button
                       variant="outline"
-                      onClick={handleAddServiceHistory}
+                      onClick={(e) => {
+                        e.preventDefault(); // Prevent the form from submitting
+                        handleAddServiceHistory();
+                      }}
                       className="flex items-center"
                     >
                       <Plus className="mr-2 h-4 w-4" />
@@ -420,7 +318,10 @@ export default function ServiceRequestPage() {
                     </div>
                     <Button
                       variant="outline"
-                      onClick={handleAddUpcomingService}
+                      onClick={(e) => {
+                        e.preventDefault(); // Prevent the form from submitting
+                        handleAddUpcomingService();
+                      }}
                       className="flex items-center"
                     >
                       <Plus className="mr-2 h-4 w-4" />
@@ -437,11 +338,87 @@ export default function ServiceRequestPage() {
                     ))}
                   </ul>
                 </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="parts"
+                    checked={formData.partsNeeded}
+                    onCheckedChange={(checked) =>
+                      handleChange("partsNeeded", checked as boolean)
+                    }
+                  />
+                  <Label htmlFor="parts">Replacement parts may be needed</Label>
+                </div>
+
+                <div className="space-y-2 w-full">
+                  <Label htmlFor="additional-notes">Additional Notes</Label>
+                  <Textarea
+                    id="additional-notes"
+                    value={formData.additionalNotes}
+                    onChange={(e) =>
+                      handleChange("additionalNotes", e.target.value)
+                    }
+                    placeholder="Any additional information that might be helpful"
+                  />
+                </div>
+                <div className="space-y-4">
+                  <Label htmlFor="allocated-hours">Allocated Hours</Label>
+                  <div className="flex items-center gap-4">
+                    <input
+                      id="allocated-hours"
+                      type="number"
+                      className="border p-2 rounded w-full"
+                      min="0"
+                      max="60"
+                      value={allocatedHours}
+                      onChange={(e) => {
+                        const newHours = parseInt(e.target.value, 10);
+                        if (newHours <= 60) {
+                          handleAllocateHours(newHours);
+                        } else {
+                          alert("Allocated hours cannot exceed 60.");
+                        }
+                      }}
+                      placeholder="Enter allocated hours"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        if (allocatedHours < 60) {
+                          handleAllocateHours(allocatedHours + 1);
+                        } else {
+                          alert("Allocated hours cannot exceed 60.");
+                        }
+                      }}
+                      disabled={allocatedHours >= 60}
+                    >
+                      <Plus className="mr-2 h-4 w-4" />
+                      Add Hour
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        if (allocatedHours > 0) {
+                          handleAllocateHours(allocatedHours - 1);
+                        }
+                      }}
+                      disabled={allocatedHours <= 0}
+                    >
+                      <ArrowLeft className="mr-2 h-4 w-4" />
+                      Subtract Hour
+                    </Button>
+                  </div>
+                  <p className="text-sm text-gray-600">
+                    Current allocated hours: <strong>{allocatedHours}</strong>
+                    /60
+                  </p>
+                </div>
               </CardContent>
               <CardFooter>
                 <Button
                   type="submit"
-                  className="w-full bg-orange-500 hover:bg-orange-600"
+                  className="w-full bg-orange-500 my-4 hover:bg-orange-600"
                 >
                   Submit Service Request
                 </Button>

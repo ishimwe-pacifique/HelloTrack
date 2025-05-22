@@ -81,8 +81,8 @@ const TractorRegistrationForm: React.FC = () => {
          bodyOpenClassName="overflow-hidden" 
         style={customStyles}
       >
-        <div className="max-w-2xl h-[80vh] overflow-y-auto z-30 mx-auto mt-10 p-6 bg-white shadow-md rounded-lg">
-          <h1 className="text-2xl font-bold text-gray-800 mb-6">
+        <div className="max-w-2xl h-[80vh] overflow-y-auto z-30 mx-auto mt-10 p-6 text-black shadow-md rounded-lg">
+          <h1 className="text-2xl font-bold mb-6">
             Register Tractor Owner
           </h1>
 
@@ -103,7 +103,7 @@ const TractorRegistrationForm: React.FC = () => {
             <div className="mb-4">
               <label
                 htmlFor="name"
-                className="block text-gray-700 font-medium mb-2"
+                className="block text-black font-medium mb-2"
               >
                 Name
               </label>
@@ -123,7 +123,7 @@ const TractorRegistrationForm: React.FC = () => {
             <div className="mb-4">
               <label
                 htmlFor="phoneNumber"
-                className="block text-gray-700 font-medium mb-2"
+                className="block text-black font-medium mb-2"
               >
                 Phone Number
               </label>
@@ -143,7 +143,7 @@ const TractorRegistrationForm: React.FC = () => {
             <div className="mb-4">
               <label
                 htmlFor="email"
-                className="block text-gray-700 font-medium mb-2"
+                className="block text-black font-medium mb-2"
               >
                 Email
               </label>
@@ -163,7 +163,7 @@ const TractorRegistrationForm: React.FC = () => {
             <div className="mb-4">
               <label
                 htmlFor="physicalAddress"
-                className="block text-gray-700 font-medium mb-2"
+                className="block text-black font-medium mb-2"
               >
                 Physical Address
               </label>
@@ -183,7 +183,7 @@ const TractorRegistrationForm: React.FC = () => {
             <div className="mb-4">
               <label
                 htmlFor="location"
-                className="block text-gray-700 font-medium mb-2"
+                className="block text-black font-medium mb-2"
               >
                 Location
               </label>
@@ -203,7 +203,7 @@ const TractorRegistrationForm: React.FC = () => {
             <div className="mb-4">
               <label
                 htmlFor="assignedTractor"
-                className="block text-gray-700 font-medium mb-2"
+                className="block text-black font-medium mb-2"
               >
                 Assigned Tractor
               </label>
@@ -223,7 +223,7 @@ const TractorRegistrationForm: React.FC = () => {
             <div className="mb-4">
               <label
                 htmlFor="newRegistrationNumber"
-                className="block text-gray-700 font-medium mb-2"
+                className="block text-black font-medium mb-2"
               >
                 New Registration Number
               </label>
@@ -243,7 +243,7 @@ const TractorRegistrationForm: React.FC = () => {
             <div className="mb-4">
               <label
                 htmlFor="tractorId"
-                className="block text-gray-700 font-medium mb-2"
+                className="block text-black font-medium mb-2"
               >
                 Tractor ID
               </label>
@@ -263,7 +263,7 @@ const TractorRegistrationForm: React.FC = () => {
             <div className="mb-4">
               <label
                 htmlFor="welcomeEmailStatus"
-                className="block text-gray-700 font-medium mb-2"
+                className="block text-black font-medium mb-2"
               >
                 Welcome Email Status
               </label>

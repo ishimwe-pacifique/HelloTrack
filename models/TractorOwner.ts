@@ -11,10 +11,9 @@ interface UpcomingService {
 }
 
 interface AssignedTractor {
-  name: string;
+  partsNeeded?: boolean;
+  additionalNotes?: string;
   hours: number;
-  lastService: string;
-  status: string;
   serviceHistory: ServiceHistory[];
   upcomingServices: UpcomingService[];
 }
@@ -29,7 +28,8 @@ interface TractorOwner extends Document {
   newRegistrationNumber: string;
   tractorId: string;
   welcomeEmailStatus: string;
-  tractorDetails?: AssignedTractor;
+
+  tractorInfo?: AssignedTractor;
   qrCodeValue?: string;
 }
 
@@ -43,23 +43,23 @@ const TractorOwnerSchema: Schema = new mongoose.Schema({
   newRegistrationNumber: { type: String, required: true },
   tractorId: { type: String, required: true, unique: true },
   welcomeEmailStatus: { type: String, default: 'Pending' },
+
   qrCodeValue: { type: String },
-  tractorDetails: {
+  tractorInfo: {
     type: {
-      name: { type: String },
+      partsNeeded: { type: Boolean, default: false },
+      additionalNotes: { type: String,default : '' },
       hours: { type: Number },
-      lastService: { type: String },
-      status: { type: String },
       serviceHistory: [
         {
           date: { type: String },
-          description: { type: String },
+          description: { type: String }, status: { type: String },
         },
       ],
       upcomingServices: [
         {
           date: { type: String },
-          description: { type: String },
+          description: { type: String }, status: { type: String },
         },
       ],
     },

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import {
   Card,
   CardContent,
@@ -19,10 +20,26 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import DashboardHeader from "@/components/dashboard-header";
-import { utilities } from "@/utils/utilities";
 import TractorRegistrationForm from "@/components/TractorRegistrationForm";
+import { useEffect, useState } from "react";
+import axios from "axios";
 
 export default function DashboardPage() {
+  const [tractorOwners, setTractorOwners] = useState<any[]>([]); // State for fetched data
+
+  // Fetch tractor owners
+  useEffect(() => {
+    const fetchTractorOwners = async () => {
+      try {
+        const response = await axios.get("/api/tractor-owners");
+        console.log(response.data.data);
+        setTractorOwners(response.data.data);
+      } catch (error: any) {
+        console.error("Error fetching tractor owners:", error);
+      }
+    };
+    fetchTractorOwners();
+  }, []);
   return (
     <div className="min-h-screen bg-gray-50">
       <DashboardHeader />
@@ -99,8 +116,8 @@ export default function DashboardPage() {
               <TractorRegistrationForm />
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {utilities.map((tractor) => (
-                  <Card key={tractor.id} className="overflow-hidden">
+                {tractorOwners.map((tractor) => (
+                  <Card key={tractor._id} className="overflow-hidden">
                     <CardHeader className="bg-orange-50 pb-2">
                       <div className="flex justify-between items-center">
                         <CardTitle className="text-lg">
@@ -108,21 +125,21 @@ export default function DashboardPage() {
                         </CardTitle>
                         <Badge
                           className={
-                            tractor.status === "good"
+                            tractor.tractorInfo.partsNeeded === false
                               ? "bg-green-500"
-                              : tractor.status === "warning"
+                              : tractor.tractorInfo.partsNeeded === true
                               ? "bg-amber-500"
                               : "bg-red-500"
                           }
                         >
-                          {tractor.status === "good"
+                          {tractor.tractorInfo.partsNeeded === false
                             ? "Good"
-                            : tractor.status === "warning"
-                            ? "Service Soon"
+                            : tractor.tractorInfo.partsNeeded === true
+                            ? "Requires Attention"
                             : "Service Required"}
                         </Badge>
                       </div>
-                      <CardDescription>ID: {tractor.id}</CardDescription>
+                      <CardDescription>ID: {tractor.tractorId}</CardDescription>
                     </CardHeader>
                     <CardContent className="pt-4">
                       <div className="space-y-4">
@@ -130,26 +147,34 @@ export default function DashboardPage() {
                           <div className="flex justify-between text-sm mb-1">
                             <span>Hours since last service</span>
                             <span className="font-medium">
-                              {tractor.hours}/60
+                              {tractor.tractorInfo.hours}/60
                             </span>
                           </div>
                           <Progress
-                            value={(tractor.hours / 60) * 100}
-                            className={
-                              tractor.status === "good"
-                                ? "text-green-500"
-                                : tractor.status === "warning"
-                                ? "text-amber-500"
-                                : "text-red-500"
-                            }
+                            value={(tractor.tractorInfo.hours / 60) * 100}
+                            className="h-2 bg-orange-200"
                           />
                         </div>
-                        <div className="flex justify-between text-sm">
-                          <span>Last service date:</span>
-                          <span>{tractor.lastService}</span>
+                        <div className="space-y-2 text-sm">
+                          <span>Service History:</span>
+                          {tractor.tractorInfo.serviceHistory &&
+                          tractor.tractorInfo.serviceHistory.length > 0 ? (
+                            <ul>
+                              {tractor.tractorInfo.serviceHistory.map(
+                                (service: any, index: number) => (
+                                  <li key={index}>
+                                    {service.date} - {service.description}
+                                  </li>
+                                )
+                              )}
+                            </ul>
+                          ) : (
+                            <span>No service history available</span>
+                          )}
                         </div>
+
                         <div className="flex justify-between">
-                          <Link href={`/tractor/${tractor.id}`}>
+                          <Link href={`/tractor/${tractor.tractorId}`}>
                             <Button
                               variant="outline"
                               className="text-white"
@@ -158,7 +183,9 @@ export default function DashboardPage() {
                               View Details
                             </Button>
                           </Link>
-                          <Link href={`/service-request?tractor=${tractor.id}`}>
+                          <Link
+                            href={`/service-request?tractor=${tractor.tractorId}`}
+                          >
                             <Button
                               size="sm"
                               className="bg-orange-500 hover:bg-orange-600"

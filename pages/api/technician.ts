@@ -1,7 +1,7 @@
 // pages/api/tractor-owners/index.ts
 import { NextApiRequest, NextApiResponse } from 'next';
 import dbConnect from '@/utils/db'; // Create a helper function for MongoDB connection
-import TractorOwner from '@/models/TractorOwner';
+import TractorOwner from '@/models/Technician';
 
 // Connect to the database
 dbConnect.connect();
@@ -16,18 +16,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         case 'GET':
             try {
                 if (id) {
-                    // Fetch a single tractor owner by ID
+                    // Fetch a single Technician by ID
                     const owner = await TractorOwner.findById(id);
                     if (!owner) {
-                        return res.status(404).json({ success: false, message: 'Tractor owner not found' });
+                        return res.status(404).json({ success: false, message: 'Technician not found' });
                     }
                     return res.status(200).json({ success: true, data: owner });
                 } else if (tractorId) {
-                    // Fetch a single tractor owner by tractorId
+                    // Fetch a single Technician by tractorId
                     const owner = await TractorOwner.findOne({ tractorId: tractorId }).exec();
 
                     if (!owner) {
-                        return res.status(404).json({ success: false, message: 'Tractor owner not found' });
+                        return res.status(404).json({ success: false, message: 'Technician not found' });
                     }
                     return res.status(200).json({ success: true, data: owner });
                 }
@@ -56,14 +56,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 if (id) {
                     const owner = await TractorOwner.findByIdAndUpdate(id, req.body, { new: true });
                     if (!owner) {
-                        return res.status(404).json({ success: false, message: 'Tractor owner not found' });
+                        return res.status(404).json({ success: false, message: 'Technician not found' });
                     }
                     res.status(200).json({ success: true, data: owner });
                 }
                 else if (tractorId) {
                     const owner = await TractorOwner.findOneAndUpdate({ tractorId: tractorId }, req.body, { new: true });
                     if (!owner) {
-                        return res.status(404).json({ success: false, message: 'Tractor owner not found' });
+                        return res.status(404).json({ success: false, message: 'Technician not found' });
                     }
                     res.status(200).json({ success: true, data: owner });
                 } else {
@@ -78,7 +78,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             try {
                 const deletedOwner = await TractorOwner.findByIdAndDelete(id);
                 if (!deletedOwner) {
-                    return res.status(404).json({ success: false, message: 'Tractor owner not found' });
+                    return res.status(404).json({ success: false, message: 'Technician not found' });
                 }
                 res.status(200).json({ success: true, data: {} });
             } catch (error) {
