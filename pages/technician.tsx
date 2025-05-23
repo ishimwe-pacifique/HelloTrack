@@ -38,6 +38,7 @@ import DashboardHeader from "@/components/dashboard-header";
 import TechnicianForm from "@/components/TechnicianRegistrationForm";
 import axios from "axios";
 import AssignService from "@/components/AssignService";
+import PartsManagement from "@/components/PartsManagement";
 
 export default function TechnicianPage() {
   const [selectedRequest, setSelectedRequest] = useState<string | null>(null);
@@ -55,8 +56,11 @@ export default function TechnicianPage() {
     },
     { id: "P007", name: "Spark Plugs", quantity: 0, status: "Out of Stock" },
   ]);
-  const [technicianData, setTechnicianData] = useState<any[]>([]); // State for fetched data
-  const [assignedRequests, setAssignedRequests] = useState<any[]>([
+  const [technicianData, setTechnicianData] = useState<any[]>([]);
+  const [partsData, setPartsData] = useState<any[]>([]);
+  const [assignedRequests, setAssignedRequests] = useState<any[]>([]);
+  const [tractorOwners, setTractorOwners] = useState<any[]>([]);
+  const requests = [
     {
       id: "SR-002",
       tractor: "Massey Ferguson 240",
@@ -83,9 +87,7 @@ export default function TechnicianPage() {
       location: "East Field",
       partsNeeded: ["Oil Filter", "Air Filter", "Fuel Filter"],
     },
-  ]);
-  const [tractorOwners, setTractorOwners] = useState<any[]>([]); // State for fetched data
-
+  ];
   // Fetch tractor owners
   useEffect(() => {
     const fetchTractorOwners = async () => {
@@ -98,8 +100,18 @@ export default function TechnicianPage() {
       }
     };
     fetchTractorOwners();
+    const fetchServices = async () => {
+      try {
+        const response = await axios.get("/api/assign-service");
+        console.log(response.data.data);
+        setAssignedRequests(response.data.data);
+      } catch (error: any) {
+        console.error("Error fetching tractor owners:", error);
+      }
+    };
+    fetchServices();
   }, []);
-  // Fetch tractor owners
+
   useEffect(() => {
     const fetchTechnicianData = async () => {
       try {
@@ -111,26 +123,57 @@ export default function TechnicianPage() {
       }
     };
     fetchTechnicianData();
+
+    const fetchPartsData = async () => {
+      try {
+        const response = await axios.get("/api/parts");
+        setPartsData(response.data);
+      } catch (error: any) {
+        console.error("Error fetching parts:", error);
+      }
+    };
+    fetchPartsData();
   }, []);
+
   const handleAssignService = async (
     technicianId: string,
     requestId: string,
-    tractorId: string
+    tractor: string,
+    maintenanceTask: string,
+    commonProblem: string,
+    priority: string,
+    parts: { partId: string; quantity: number }[]
   ) => {
     try {
       await axios.post("/api/assign-service", {
         technicianId,
-        requestId,tractorId
+        requestId,
+        tractor,
+        maintenanceTask,
+        commonProblem,
+        parts,
+        priority,
       });
+
       setAssignedRequests((prevRequests) =>
         prevRequests.map((request) =>
           request.id === requestId
-            ? { ...request, assignedTo: technicianId, tractorId:tractorId, status: "in-progress" }
+            ? {
+                ...request,
+                assignedTo: technicianId,
+                tractor: tractor,
+                maintenanceTask: maintenanceTask,
+                commonProblem: commonProblem,
+                parts,
+                priority,
+                status: "in-progress",
+              }
             : request
         )
       );
+
       alert(
-        `Service Request ${requestId} assigned to Technician ${technicianId}`
+        `Service Request ${requestId} assigned to Technician ${technicianId}. Maintenance Task: "${maintenanceTask}", Common Problem: "${commonProblem}"`
       );
     } catch (error) {
       console.error("Error assigning service:", error);
@@ -182,7 +225,7 @@ export default function TechnicianPage() {
       })
     );
   };
-
+  console.log(assignedRequests);
   return (
     <div className="min-h-screen bg-gray-50">
       <DashboardHeader />
@@ -271,8 +314,9 @@ export default function TechnicianPage() {
                 <AssignService
                   technicians={technicianData}
                   tractor={tractorOwners}
-                  requests={assignedRequests}
+                  requests={requests}
                   onAssign={handleAssignService}
+                  parts={partsData}
                 />
                 <Card>
                   <CardHeader>
@@ -285,16 +329,16 @@ export default function TechnicianPage() {
                     <div className="space-y-4">
                       {assignedRequests.map((request) => (
                         <div
-                          key={request.id}
+                          key={request._id}
                           className={`flex items-start p-4 border rounded-lg cursor-pointer transition-colors ${
-                            selectedRequest === request.id
+                            selectedRequest === request._id
                               ? "border-orange-500 bg-orange-50"
                               : "hover:border-orange-200 hover:bg-orange-50/50"
                           }`}
-                          onClick={() => setSelectedRequest(request.id)}
+                          onClick={() => setSelectedRequest(request._id)}
                         >
                           <div className="mr-4">
-                            {request.urgency === "high" ? (
+                            {request.priority === "high" ? (
                               <AlertTriangle className="h-8 w-8 text-red-500" />
                             ) : (
                               <Clock className="h-8 w-8 text-orange-500" />
@@ -305,20 +349,20 @@ export default function TechnicianPage() {
                               <h4 className="font-medium">{request.tractor}</h4>
                               <Badge
                                 className={
-                                  request.urgency === "high"
+                                  request.priority === "high"
                                     ? "bg-red-500"
-                                    : request.urgency === "medium"
+                                    : request.priority === "medium"
                                     ? "bg-amber-500"
                                     : "bg-blue-500"
                                 }
                               >
-                                {request.urgency.charAt(0).toUpperCase() +
-                                  request.urgency.slice(1)}{" "}
+                                {request.priority.charAt(0).toUpperCase() +
+                                  request.priority.slice(1)}{" "}
                                 Priority
                               </Badge>
                             </div>
                             <p className="text-sm text-gray-600">
-                              Request ID: {request.id}
+                              Request ID: {request.slug}
                             </p>
                             <p className="text-sm text-gray-600 mt-1">
                               {request.description}
@@ -326,7 +370,9 @@ export default function TechnicianPage() {
                             <div className="flex flex-wrap items-center mt-2 text-xs text-gray-500 gap-x-4 gap-y-1">
                               <div className="flex items-center">
                                 <Calendar className="h-3 w-3 mr-1" />
-                                <span>{request.date}</span>
+                                <span>
+                                  {new Date(request.updatedAt).toLocaleString()}
+                                </span>
                               </div>
                               <div className="flex items-center">
                                 <User className="h-3 w-3 mr-1" />
@@ -337,6 +383,17 @@ export default function TechnicianPage() {
                                 <span>ID: {request.tractorId}</span>
                               </div>
                             </div>
+                            <span className="flex text-sm text-gray-600 mt-1">
+                              <span className="font-medium">Parts Needed:</span>{" "}
+                              <ul className="flex text-sm">
+                                {request.parts?.map((part: any) => (
+                                  <li key={part.partId._id}>
+                                    {part.partId.partName} -{" "}
+                                    {part.partId.partNumber}
+                                  </li>
+                                ))}
+                              </ul>
+                            </span>
                           </div>
                         </div>
                       ))}
@@ -629,6 +686,7 @@ export default function TechnicianPage() {
             </Card>
           </div>
         </div>
+        <PartsManagement />
       </main>
     </div>
   );
