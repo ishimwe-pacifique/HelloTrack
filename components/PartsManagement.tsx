@@ -9,12 +9,14 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import axios from "axios";
+import { Badge } from "./ui/badge";
 
 interface Part {
   _id?: string;
   partName: string;
   partNumber: string;
   quantity: number;
+  status?: string;
   unitPrice: number;
 }
 
@@ -26,6 +28,7 @@ const PartsManagement: React.FC = () => {
     partNumber: "",
     quantity: 1,
     unitPrice: 0,
+    status: "In Stock",
   });
   const [isEditMode, setIsEditMode] = useState(false);
   const [selectedPartId, setSelectedPartId] = useState<string | null>(null);
@@ -109,13 +112,14 @@ const PartsManagement: React.FC = () => {
   };
   // View parts table
   return (
-    <div className="p-4 text-black">
+    <div className="p-4 text-black flex flex-col gap-4">
       <Dialog>
-        <DialogTrigger asChild>
-          <Button className="bg-orange-400">
+        <DialogTrigger asChild className="w-full flex justify-end">
+          <div><Button className="bg-orange-400">
             {isEditMode ? "Update Part" : "Add Part"}
-          </Button>
+          </Button></div>
         </DialogTrigger>
+        <hr />
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{isEditMode ? "Update Part" : "Add Part"}</DialogTitle>
@@ -178,8 +182,47 @@ const PartsManagement: React.FC = () => {
         </DialogContent>
       </Dialog>
 
-      <h2 className="text-xl font-bold mt-6">Parts Inventory</h2>
-      <table style={{ borderCollapse: "collapse", width: "100%" }}>
+      {/* <h2 className="text-xl font-bold mt-6">Parts Inventory</h2> */}
+      <div className="space-y-4">
+        {parts.map((part) => (
+          <div key={part._id} className="flex items-center justify-between">
+            <div className="flex flex-col">
+              <p className="font-medium">{part.partName}</p>
+              <span className="text-sm text-gray-600">
+                part number: {part.partNumber}
+              </span>
+              <span className="text-sm text-gray-600">
+                QTTY: {part.quantity}
+              </span>
+            </div>
+            <div className="flex flex-col gap-2 items-center">
+              <Badge
+                className={
+                  part.status === "In Stock"
+                    ? "bg-green-500"
+                    : part.status === "Low Stock"
+                    ? "bg-amber-500"
+                    : "bg-red-500"
+                }
+              >
+                {part.status}
+              </Badge>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" onClick={() => handleEdit(part)}>
+                  Edit
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={() => handleDelete(part._id!)}
+                >
+                  Delete
+                </Button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+      {/* <table style={{ borderCollapse: "collapse", width: "100%" }}>
         <thead>
           <tr>
             <th
@@ -276,7 +319,7 @@ const PartsManagement: React.FC = () => {
             </tr>
           ))}
         </tbody>
-      </table>
+      </table> */}
     </div>
   );
 };

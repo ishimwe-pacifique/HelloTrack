@@ -5,7 +5,8 @@ interface IPart extends Document {
   partNumber: string;
   quantity: number;
   unitPrice: number;
-  remainingQuantity: number; // To track how much is left
+  remainingQuantity: number;
+  status: string;
   reduceQuantity: (amount: number) => void; // Method to reduce quantity
   increaseQuantity: (amount: number) => void; // Method to increase quantity
 }
@@ -38,9 +39,15 @@ const PartSchema = new Schema<IPart>(
     },
   },
   {
-    timestamps: true, // Automatically adds createdAt and updatedAt fields
+    timestamps: true, 
+     toJSON: { virtuals: true }, // Include virtuals when converting to JSON
+    toObject: { virtuals: true }, 
   }
 );
+
+PartSchema.virtual("status").get(function () {
+  return this.remainingQuantity > 0 ? "In Stock" : "Out of Stock";
+});
 
 // Method to reduce quantity
 PartSchema.methods.reduceQuantity = function (amount: number): void {

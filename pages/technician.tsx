@@ -12,17 +12,6 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   Clock,
   CheckCircle,
@@ -39,23 +28,11 @@ import TechnicianForm from "@/components/TechnicianRegistrationForm";
 import axios from "axios";
 import AssignService from "@/components/AssignService";
 import PartsManagement from "@/components/PartsManagement";
+import UpdateRequestDialog from "@/components/UpdateRequestDialog";
 
 export default function TechnicianPage() {
   const [selectedRequest, setSelectedRequest] = useState<string | null>(null);
-  const [partsInventory, setPartsInventory] = useState([
-    { id: "P001", name: "Oil Filter", quantity: 15, status: "In Stock" },
-    { id: "P002", name: "Air Filter", quantity: 8, status: "In Stock" },
-    { id: "P003", name: "Fuel Filter", quantity: 5, status: "Low Stock" },
-    { id: "P004", name: "Hydraulic Fluid", quantity: 20, status: "In Stock" },
-    { id: "P005", name: "Engine Oil", quantity: 25, status: "In Stock" },
-    {
-      id: "P006",
-      name: "Transmission Fluid",
-      quantity: 3,
-      status: "Low Stock",
-    },
-    { id: "P007", name: "Spark Plugs", quantity: 0, status: "Out of Stock" },
-  ]);
+
   const [technicianData, setTechnicianData] = useState<any[]>([]);
   const [partsData, setPartsData] = useState<any[]>([]);
   const [assignedRequests, setAssignedRequests] = useState<any[]>([]);
@@ -180,52 +157,34 @@ export default function TechnicianPage() {
     }
   };
 
-  const completedRequests = [
-    {
-      id: "SR-003",
-      tractor: "New Holland TD5.90",
-      tractorId: "TR-003",
-      date: "2023-05-10",
-      type: "Regular Maintenance",
-      status: "completed",
-      description: "60-hour maintenance service",
-      owner: "Michael Brown",
-      location: "South Farm",
-    },
-    {
-      id: "SR-004",
-      tractor: "Kubota M7060",
-      tractorId: "TR-004",
-      date: "2023-03-20",
-      type: "Repair",
-      status: "completed",
-      description: "Hydraulic system repair",
-      owner: "Emily Wilson",
-      location: "West Field",
-    },
-  ];
+  const handleUpdateRequest = async (requestId: string, updatedData: any) => {
+    try {
+      const response = await fetch(`/api/assign-service?id=${requestId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(updatedData),
+      });
 
-  const getSelectedRequest = () => {
-    return assignedRequests.find((req) => req.id === selectedRequest);
+      if (!response.ok) {
+        throw new Error("Failed to update the request.");
+      }
+
+      const updatedRequest = await response.json();
+
+      // Update state
+      setAssignedRequests((prevRequests) =>
+        prevRequests.map((req) =>
+          req._id === requestId ? { ...req, ...updatedRequest } : req
+        )
+      );
+    } catch (error) {
+      console.error("Error updating request:", error);
+      alert("Failed to update the request. Please try again.");
+    }
   };
 
-  const handleUpdateInventory = (id: string, newQuantity: number) => {
-    setPartsInventory(
-      partsInventory.map((part) => {
-        if (part.id === id) {
-          const status =
-            newQuantity === 0
-              ? "Out of Stock"
-              : newQuantity <= 5
-              ? "Low Stock"
-              : "In Stock";
-          return { ...part, quantity: newQuantity, status };
-        }
-        return part;
-      })
-    );
-  };
-  console.log(assignedRequests);
   return (
     <div className="min-h-screen bg-gray-50">
       <DashboardHeader />
@@ -304,11 +263,18 @@ export default function TechnicianPage() {
                   Assigned ({assignedRequests.length})
                 </TabsTrigger>
                 <TabsTrigger value="completed">
-                  Completed ({completedRequests.length})
+                  Completed (
+                  {
+                    assignedRequests.filter(
+                      (request) => request.status === "completed"
+                    ).length
+                  }
+                  )
                 </TabsTrigger>
                 <TabsTrigger value="technician">
                   Technicians ({technicianData.length})
                 </TabsTrigger>
+                assignedRequests
               </TabsList>
               <TabsContent value="assigned">
                 <AssignService
@@ -330,7 +296,7 @@ export default function TechnicianPage() {
                       {assignedRequests.map((request) => (
                         <div
                           key={request._id}
-                          className={`flex items-start p-4 border rounded-lg cursor-pointer transition-colors ${
+                          className={`flex flex-col md:flex-row items-start p-4 border rounded-lg cursor-pointer transition-colors ${
                             selectedRequest === request._id
                               ? "border-orange-500 bg-orange-50"
                               : "hover:border-orange-200 hover:bg-orange-50/50"
@@ -346,7 +312,9 @@ export default function TechnicianPage() {
                           </div>
                           <div className="flex-1">
                             <div className="flex flex-col md:flex-row md:items-center md:justify-between">
-                              <h4 className="font-medium">{request.tractor}</h4>
+                              <h4 className="font-medium">
+                                {request.tractor.name}
+                              </h4>
                               <Badge
                                 className={
                                   request.priority === "high"
@@ -376,11 +344,16 @@ export default function TechnicianPage() {
                               </div>
                               <div className="flex items-center">
                                 <User className="h-3 w-3 mr-1" />
-                                <span>Owner: {request.owner}</span>
+                                <span>
+                                  Technician: {request.technicianId.firstName}{" "}
+                                  {request.technicianId.lastName}
+                                </span>
                               </div>
                               <div className="flex items-center">
                                 <Tractor className="h-3 w-3 mr-1" />
-                                <span>ID: {request.tractorId}</span>
+                                <span>
+                                  Tractor ID: {request.tractor.tractorId}
+                                </span>
                               </div>
                             </div>
                             <span className="flex text-sm text-gray-600 mt-1">
@@ -394,6 +367,22 @@ export default function TechnicianPage() {
                                 ))}
                               </ul>
                             </span>
+                            <span className="text-sm">
+                              Notes: {request.notes}
+                            </span>
+
+                            {/* Update Button */}
+                            <div className="mt-4 flex justify-between">
+                              <span className="text-sm">
+                                Status: {request.status}
+                              </span>
+                              <UpdateRequestDialog
+                                request={request}
+                                onUpdate={(updatedData) =>
+                                  handleUpdateRequest(request._id, updatedData)
+                                }
+                              />
+                            </div>
                           </div>
                         </div>
                       ))}
@@ -401,6 +390,7 @@ export default function TechnicianPage() {
                   </CardContent>
                 </Card>
               </TabsContent>
+
               <TabsContent value="completed">
                 <Card>
                   <CardHeader>
@@ -411,49 +401,65 @@ export default function TechnicianPage() {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      {completedRequests.map((request) => (
-                        <div
-                          key={request.id}
-                          className="flex items-start p-4 border rounded-lg"
-                        >
-                          <div className="mr-4">
-                            <CheckCircle className="h-8 w-8 text-green-500" />
-                          </div>
-                          <div className="flex-1">
-                            <div className="flex flex-col md:flex-row md:items-center md:justify-between">
-                              <h4 className="font-medium">{request.tractor}</h4>
-                              <Badge className="bg-green-500">Completed</Badge>
+                      {assignedRequests
+                        .filter((request) => request.status === "completed")
+                        .map((request) => (
+                          <div
+                            key={request._id}
+                            className="flex items-start p-4 border rounded-lg"
+                          >
+                            <div className="mr-4">
+                              <CheckCircle className="h-8 w-8 text-green-500" />
                             </div>
-                            <p className="text-sm text-gray-600">
-                              Request ID: {request.id}
-                            </p>
-                            <p className="text-sm text-gray-600 mt-1">
-                              {request.description}
-                            </p>
-                            <div className="flex flex-wrap items-center mt-2 text-xs text-gray-500 gap-x-4 gap-y-1">
-                              <div className="flex items-center">
-                                <Calendar className="h-3 w-3 mr-1" />
-                                <span>{request.date}</span>
+                            <div className="flex-1">
+                              <div className="flex flex-col md:flex-row md:items-center md:justify-between">
+                                <h4 className="font-medium">
+                                  {" "}
+                                  {request.tractor.name}
+                                </h4>
+                                <Badge className="bg-green-500">
+                                  Completed
+                                </Badge>
                               </div>
-                              <div className="flex items-center">
-                                <User className="h-3 w-3 mr-1" />
-                                <span>Owner: {request.owner}</span>
-                              </div>
-                              <div className="flex items-center">
-                                <Tractor className="h-3 w-3 mr-1" />
-                                <span>ID: {request.tractorId}</span>
+                              <p className="text-sm text-gray-600">
+                                Request ID: {request.slug}
+                              </p>
+                              <p className="text-sm text-gray-600 mt-1">
+                                {request.description}
+                              </p>
+                              <div className="flex flex-wrap items-center mt-2 text-xs text-gray-500 gap-x-4 gap-y-1">
+                                <div className="flex items-center">
+                                  <Calendar className="h-3 w-3 mr-1" />
+                                  <span>
+                                    {new Date(
+                                      request.updatedAt
+                                    ).toLocaleString()}
+                                  </span>
+                                </div>
+                                <div className="flex items-center">
+                                  <User className="h-3 w-3 mr-1" />
+                                  <span>
+                                    Technician: {request.technicianId.firstName}{" "}
+                                    {request.technicianId.lastName}
+                                  </span>
+                                </div>
+                                <div className="flex items-center">
+                                  <Tractor className="h-3 w-3 mr-1" />
+                                  <span>ID: {request.tractor.tractorId}</span>
+                                </div>
                               </div>
                             </div>
+                            <div className="hidden md:flex ml-4">
+                              <Link
+                                href={`/service-requests/${request.tractor.tractorId}`}
+                              >
+                                <Button variant="outline" size="sm">
+                                  View Report
+                                </Button>
+                              </Link>
+                            </div>
                           </div>
-                          <div className="hidden md:flex ml-4">
-                            <Link href={`/service-reports/${request.id}`}>
-                              <Button variant="outline" size="sm">
-                                View Report
-                              </Button>
-                            </Link>
-                          </div>
-                        </div>
-                      ))}
+                        ))}
                     </div>
                   </CardContent>
                 </Card>
@@ -536,95 +542,6 @@ export default function TechnicianPage() {
           </div>
 
           <div>
-            {selectedRequest ? (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Service Details</CardTitle>
-                  <CardDescription>
-                    Complete the service request
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <h3 className="font-medium mb-2">
-                      {getSelectedRequest()?.tractor}
-                    </h3>
-                    <p className="text-sm text-gray-600">
-                      {getSelectedRequest()?.description}
-                    </p>
-                  </div>
-
-                  <div className="space-y-2">
-                    <h4 className="text-sm font-medium">Required Parts</h4>
-                    <div className="space-y-2">
-                      {getSelectedRequest()?.partsNeeded.map(
-                        (part: any, index: any) => (
-                          <div
-                            key={index}
-                            className="flex items-center space-x-2"
-                          >
-                            <Checkbox id={`part-${index}`} />
-                            <Label htmlFor={`part-${index}`}>{part}</Label>
-                          </div>
-                        )
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="service-notes">Service Notes</Label>
-                    <Textarea
-                      id="service-notes"
-                      placeholder="Enter service details and observations"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="service-hours">Hours on Tractor</Label>
-                    <Input
-                      id="service-hours"
-                      type="number"
-                      placeholder="Enter current hours"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="service-status">Update Status</Label>
-                    <Select>
-                      <SelectTrigger id="service-status">
-                        <SelectValue placeholder="Select status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="in-progress">In Progress</SelectItem>
-                        <SelectItem value="parts-needed">
-                          Parts Needed
-                        </SelectItem>
-                        <SelectItem value="completed">Completed</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="pt-4 flex gap-2">
-                    <Button className="flex-1 bg-orange-500 hover:bg-orange-600">
-                      Update Service
-                    </Button>
-                    <Button variant="outline" className="flex-1">
-                      Request Parts
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ) : (
-              <Card>
-                <CardContent className="p-8 text-center">
-                  <Tool className="h-12 w-12 text-orange-300 mx-auto mb-4" />
-                  <p className="text-gray-500">
-                    Select a service request to view details
-                  </p>
-                </CardContent>
-              </Card>
-            )}
-
             <Card className="mt-6">
               <CardHeader>
                 <CardTitle>Parts Inventory</CardTitle>
@@ -633,60 +550,11 @@ export default function TechnicianPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {partsInventory.map((part) => (
-                    <div
-                      key={part.id}
-                      className="flex items-center justify-between"
-                    >
-                      <div>
-                        <p className="font-medium">{part.name}</p>
-                        <Badge
-                          className={
-                            part.status === "In Stock"
-                              ? "bg-green-500"
-                              : part.status === "Low Stock"
-                              ? "bg-amber-500"
-                              : "bg-red-500"
-                          }
-                        >
-                          {part.status}
-                        </Badge>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          className="h-6 w-6"
-                          onClick={() =>
-                            handleUpdateInventory(
-                              part.id,
-                              Math.max(0, part.quantity - 1)
-                            )
-                          }
-                        >
-                          -
-                        </Button>
-                        <span className="w-8 text-center">{part.quantity}</span>
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          className="h-6 w-6"
-                          onClick={() =>
-                            handleUpdateInventory(part.id, part.quantity + 1)
-                          }
-                        >
-                          +
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                <PartsManagement />
               </CardContent>
             </Card>
           </div>
         </div>
-        <PartsManagement />
       </main>
     </div>
   );

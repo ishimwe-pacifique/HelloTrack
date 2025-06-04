@@ -117,8 +117,11 @@ export default function AssignService({
 
   return (
     <Dialog>
-      <DialogTrigger asChild>
-        <Button>Assign Service</Button>
+      <DialogTrigger asChild className="w-full flex justify-end">
+        <div>
+          {" "}
+          <Button className="bg-orange-400 my-4">Assign Service</Button>
+        </div>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>

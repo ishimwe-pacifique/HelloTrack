@@ -16,22 +16,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         case 'GET':
             try {
                 if (id) {
-                    // Fetch a single ServiceRequest by ID with populated references
                     const request = await ServiceRequest.findById(id)
-                        .populate('technicianId') // Populate technician details
-                        .populate('tractorId') // Populate tractor details
-                        .populate('parts.partId'); // Populate part details
+                        .populate('technicianId')
+                        .populate('tractorId')
+                        .populate('parts.partId');
                     if (!request) {
                         return res.status(404).json({ success: false, message: 'Service Request not found' });
                     }
                     return res.status(200).json({ success: true, data: request });
                 } else {
-                    // Fetch all Service Requests with populated references
+                   
                     const requests = await ServiceRequest.find({})
-                        .populate('technicianId', 'firstName lastName') // Populate technician details
-                        // .populate('tractor', 'name tractorInfo tractorId')
-                        .populate('parts.partId', 'partName partNumber') // Populate part details
-                        .sort({ createdAt: -1 }); // Sort by createdAt in descending order
+                        .populate('technicianId', 'firstName lastName')
+                        .populate('tractor', 'name tractorId')
+                        .populate('parts.partId', 'partName partNumber')
+                        .sort({ createdAt: -1 });
                     if (!requests) {
                         return res.status(404).json({ success: false, message: 'No Service Requests found' });
                     }
@@ -53,6 +52,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         case 'PUT':
             try {
                 if (id) {
+                    console.log(id)
                     const owner = await ServiceRequest.findByIdAndUpdate(id, req.body, { new: true });
                     if (!owner) {
                         return res.status(404).json({ success: false, message: 'Technician not found' });
