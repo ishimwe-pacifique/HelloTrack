@@ -32,7 +32,7 @@ export default function Home() {
             Monitor service intervals, receive timely notifications, and manage service requests efficiently.
           </p>
           <div className="flex flex-wrap justify-center gap-4">
-            <Link href="/dashboard">
+            <Link href="/login">
               <Button size="lg" className="bg-orange-500 hover:bg-orange-600">
                 Get Started
               </Button>
