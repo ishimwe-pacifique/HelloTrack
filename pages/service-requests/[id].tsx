@@ -1,13 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
+import { useRouter } from "next/router"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
@@ -15,7 +15,6 @@ import {
   ArrowLeft,
   Calendar,
   Clock,
-  MapPin,
   User,
   Tractor,
   PenToolIcon as Tool,
@@ -23,208 +22,303 @@ import {
   Package,
   AlertTriangle,
   CheckCircle,
-  FileText,
   Send,
   Paperclip,
   DollarSign,
   Phone,
+  Loader2,
 } from "lucide-react"
 import Link from "next/link"
 import DashboardHeader from "@/components/dashboard-header"
-import { useNotification } from "@/components/notification-provider"
-import { useRouter } from "next/router"
+import axios from "axios"
+
+interface ServiceRequest {
+  _id: string
+  slug: string
+  tractor: {
+    _id: string
+    name: string
+    tractorId: string
+    location?: string
+  }
+  technicianId?: {
+    _id: string
+    firstName: string
+    lastName: string
+    email?: string
+    phoneNumber?: string
+    specialty?: string
+  }
+  description: string
+  priority: "low" | "medium" | "high"
+  status: "pending" | "assigned" | "in-progress" | "completed" | "cancelled"
+  maintenanceTask?: string
+  commonProblem?: string
+  parts?: Array<{
+    partId: {
+      _id: string
+      partName: string
+      partNumber: string
+      price?: number
+    }
+    quantity: number
+  }>
+  notes?: string
+  createdAt: string
+  updatedAt: string
+  estimatedCost?: number
+  actualCost?: number
+  paymentStatus?: string
+}
+
+interface StatusUpdate {
+  status: string
+  timestamp: string
+  updatedBy: string
+  notes: string
+}
+
+interface Message {
+  id: string
+  sender: string
+  role: string
+  timestamp: string
+  content: string
+}
 
 export default function ServiceRequestDetailPage() {
   const router = useRouter()
-  const { id } = router.query;  
-  const { showNotification } = useNotification()
+  const { id } = router.query
+
+  const [serviceRequest, setServiceRequest] = useState<ServiceRequest | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState("details")
   const [statusUpdate, setStatusUpdate] = useState("")
   const [newMessage, setNewMessage] = useState("")
   const [isUpdating, setIsUpdating] = useState(false)
+  const [statusHistory, setStatusHistory] = useState<StatusUpdate[]>([])
+  const [messages, setMessages] = useState<Message[]>([])
 
-  // Mock data for a service request - in a real app, this would be fetched from an API
-  const [serviceRequest, setServiceRequest] = useState({
-    id: id as string,
-    tractor: "Massey Ferguson 240",
-    tractorId: "TR-002",
-    owner: {
-      name: "Sarah Johnson",
-      email: "sarah.johnson@example.com",
-      phone: "+1 (555) 234-5678",
-      location: "East Field",
-    },
-    date: "2023-06-08",
-    type: "Repair",
-    status: "in-progress",
-    description:
-      "Engine making unusual noise. Possible issue with the fuel system or timing. Tractor is still operational but performance is reduced.",
-    urgency: "high",
-    location: "East Field - Sector B3",
-    assignedTo: {
-      id: "TECH-001",
-      name: "Mike Johnson",
-      specialization: "Engine Repair",
-      phone: "+1 (555) 987-6543",
-      email: "mike.johnson@hellotractor.com",
-      rating: 4.8,
-    },
-    estimatedCompletion: "2023-06-12",
-    createdBy: "Sarah Johnson",
-    createdAt: "2023-06-08 09:15 AM",
-    updatedAt: "2023-06-09 02:30 PM",
-    partsNeeded: [
-      { id: "P001", name: "Fuel Filter", quantity: 1, status: "In Stock", cost: 45.99 },
-      { id: "P002", name: "Timing Belt", quantity: 1, status: "Ordered", cost: 89.5 },
-      { id: "P003", name: "Engine Oil", quantity: 5, status: "In Stock", cost: 12.99 },
-    ],
-    estimatedCost: 325.45,
-    actualCost: null,
-    paymentStatus: "Pending",
-    statusHistory: [
+  // Add this right after the router.query destructuring
+  useEffect(() => {
+    if (router.isReady) {
+      console.log("Router query:", router.query)
+      console.log("Service request ID:", id)
+    }
+  }, [router.isReady, router.query, id])
+
+  // Fetch service request details
+  useEffect(() => {
+    const fetchServiceRequest = async () => {
+      if (!id || !router.isReady) return
+
+      try {
+        setLoading(true)
+        console.log("Fetching service request with ID:", id)
+
+        // First, try to get all service requests and find the one we need
+        let response
+        try {
+          // Try fetching all requests first
+          response = await axios.get("/api/assign-service")
+          console.log("All service requests response:", response.data)
+
+          if (response.data.success && response.data.data) {
+            const allRequests = Array.isArray(response.data.data) ? response.data.data : [response.data.data]
+
+            // Find the request by ID, slug, or _id
+            const foundRequest = allRequests.find((req: any) => req._id === id || req.slug === id || req.id === id)
+
+            if (foundRequest) {
+              console.log("Found service request:", foundRequest)
+              setServiceRequest(foundRequest)
+              generateMockStatusHistory(foundRequest)
+              generateMockMessages(foundRequest)
+            } else {
+              console.log("Service request not found in list")
+              setError("Service request not found")
+            }
+          } else {
+            console.log("No service requests found")
+            setError("No service requests available")
+          }
+        } catch (getAllError: any) {
+          console.error("Error fetching all service requests:", getAllError)
+
+          // If getting all requests fails, try with specific ID
+          try {
+            response = await axios.get(`/api/assign-service?id=${id}`)
+            console.log("Single service request response:", response.data)
+
+            if (response.data.success && response.data.data) {
+              setServiceRequest(response.data.data)
+              generateMockStatusHistory(response.data.data)
+              generateMockMessages(response.data.data)
+            } else {
+              setError("Service request not found")
+            }
+          } catch (getOneError: any) {
+            console.error("Error fetching single service request:", getOneError)
+            console.error("Error response:", getOneError.response?.data)
+
+            if (getOneError.response?.status === 404) {
+              setError("Service request not found")
+            } else if (getOneError.response?.status === 400) {
+              setError("Invalid request parameters")
+            } else {
+              setError("Failed to fetch service request details")
+            }
+          }
+        }
+      } catch (error: any) {
+        console.error("Unexpected error:", error)
+        setError("An unexpected error occurred")
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchServiceRequest()
+  }, [id, router.isReady])
+
+  const generateMockStatusHistory = (request: ServiceRequest) => {
+    const history: StatusUpdate[] = [
       {
         status: "submitted",
-        timestamp: "2023-06-08 09:15 AM",
-        updatedBy: "Sarah Johnson",
+        timestamp: new Date(request.createdAt).toLocaleString(),
+        updatedBy: "System",
         notes: "Service request submitted",
       },
-      {
+    ]
+
+    if (request.status !== "pending") {
+      history.push({
         status: "assigned",
-        timestamp: "2023-06-08 11:30 AM",
+        timestamp: new Date(request.updatedAt).toLocaleString(),
         updatedBy: "Hub Lead",
-        notes: "Assigned to Mike Johnson",
-      },
-      {
+        notes: `Assigned to ${request.technicianId?.firstName || "technician"}`,
+      })
+    }
+
+    if (request.status === "in-progress" || request.status === "completed") {
+      history.push({
         status: "in-progress",
-        timestamp: "2023-06-09 02:30 PM",
-        updatedBy: "Mike Johnson",
-        notes: "Initial diagnosis complete. Will need to replace fuel filter and timing belt.",
-      },
-    ],
-    messages: [
+        timestamp: new Date(request.updatedAt).toLocaleString(),
+        updatedBy: request.technicianId?.firstName || "Technician",
+        notes: "Work started on the service request",
+      })
+    }
+
+    if (request.status === "completed") {
+      history.push({
+        status: "completed",
+        timestamp: new Date(request.updatedAt).toLocaleString(),
+        updatedBy: request.technicianId?.firstName || "Technician",
+        notes: "Service completed successfully",
+      })
+    }
+
+    setStatusHistory(history)
+  }
+
+  const generateMockMessages = (request: ServiceRequest) => {
+    const mockMessages: Message[] = [
       {
         id: "msg-001",
-        sender: "Sarah Johnson",
+        sender: "Tractor Owner",
         role: "Owner",
-        timestamp: "2023-06-08 09:30 AM",
-        content: "Please let me know when the technician will arrive. I need the tractor operational by next week.",
+        timestamp: new Date(request.createdAt).toLocaleString(),
+        content: "Service request submitted. Please let me know when the technician will arrive.",
       },
-      {
-        id: "msg-002",
-        sender: "Hub Lead",
-        role: "Hub Lead",
-        timestamp: "2023-06-08 10:15 AM",
-        content: "We've received your request and are assigning a technician. We'll keep you updated.",
-      },
-      {
-        id: "msg-003",
-        sender: "Mike Johnson",
-        role: "Technician",
-        timestamp: "2023-06-09 08:45 AM",
-        content: "I'll be at your location tomorrow morning around 9 AM. Please ensure access to the tractor.",
-      },
-      {
-        id: "msg-004",
-        sender: "Sarah Johnson",
-        role: "Owner",
-        timestamp: "2023-06-09 09:10 AM",
-        content: "Thank you. The tractor will be in the main barn. Someone will be there to provide access.",
-      },
-    ],
-    documents: [
-      {
-        id: "doc-001",
-        name: "Initial Service Request.pdf",
-        type: "application/pdf",
-        size: "245 KB",
-        uploadedBy: "Sarah Johnson",
-        uploadedAt: "2023-06-08 09:15 AM",
-      },
-      {
-        id: "doc-002",
-        name: "Tractor Manual.pdf",
-        type: "application/pdf",
-        size: "3.2 MB",
-        uploadedBy: "Sarah Johnson",
-        uploadedAt: "2023-06-08 09:20 AM",
-      },
-      {
-        id: "doc-003",
-        name: "Diagnostic Report.pdf",
-        type: "application/pdf",
-        size: "1.8 MB",
-        uploadedBy: "Mike Johnson",
-        uploadedAt: "2023-06-09 03:15 PM",
-      },
-    ],
-  })
+    ]
 
-  const handleStatusUpdate = () => {
-    if (!statusUpdate) return
+    if (request.technicianId) {
+      mockMessages.push({
+        id: "msg-002",
+        sender: `${request.technicianId.firstName} ${request.technicianId.lastName}`,
+        role: "Technician",
+        timestamp: new Date(request.updatedAt).toLocaleString(),
+        content: "I have been assigned to your service request. I will contact you to schedule a visit.",
+      })
+    }
+
+    setMessages(mockMessages)
+  }
+
+  const handleStatusUpdate = async () => {
+    if (!statusUpdate || !serviceRequest) return
 
     setIsUpdating(true)
 
-    // Simulate API call
-    setTimeout(() => {
-      const newStatus = {
+    try {
+      const response = await axios.put(`/api/assign-service?id=${serviceRequest._id}`, {
         status: "in-progress",
-        timestamp: new Date().toLocaleString(),
-        updatedBy: "Current User",
         notes: statusUpdate,
+      })
+
+      if (response.data.success) {
+        const newStatus: StatusUpdate = {
+          status: "in-progress",
+          timestamp: new Date().toLocaleString(),
+          updatedBy: "Current User",
+          notes: statusUpdate,
+        }
+
+        setStatusHistory((prev) => [...prev, newStatus])
+        setStatusUpdate("")
+        alert("Status updated successfully!")
       }
-
-      setServiceRequest((prev) => ({
-        ...prev,
-        statusHistory: [...prev.statusHistory, newStatus],
-      }))
-
-      setStatusUpdate("")
+    } catch (error) {
+      console.error("Error updating status:", error)
+      alert("Failed to update status. Please try again.")
+    } finally {
       setIsUpdating(false)
-      showNotification("Status Updated", "The service request status has been updated successfully.", "success")
-    }, 1000)
+    }
   }
 
   const handleSendMessage = () => {
     if (!newMessage) return
 
-    // Simulate API call
-    const newMsg = {
-      id: `msg-${serviceRequest.messages.length + 1}`,
+    const newMsg: Message = {
+      id: `msg-${messages.length + 1}`,
       sender: "Current User",
-      role: "Technician",
+      role: "User",
       timestamp: new Date().toLocaleString(),
       content: newMessage,
     }
 
-    setServiceRequest((prev) => ({
-      ...prev,
-      messages: [...prev.messages, newMsg],
-    }))
-
+    setMessages((prev) => [...prev, newMsg])
     setNewMessage("")
-    showNotification("Message Sent", "Your message has been sent successfully.", "success")
+    alert("Message sent successfully!")
   }
 
-  const handleCompleteService = () => {
-    // Simulate API call
-    setTimeout(() => {
-      setServiceRequest((prev:any) => ({
-        ...prev,
-        status: "completed",
-        statusHistory: [
-          ...prev.statusHistory,
-          {
-            status: "completed",
-            timestamp: new Date().toLocaleString(),
-            updatedBy: "Current User",
-            notes: "Service completed successfully",
-          },
-        ],
-        actualCost: prev.estimatedCost,
-      }))
+  const handleCompleteService = async () => {
+    if (!serviceRequest) return
 
-      showNotification("Service Completed", "The service has been marked as completed.", "success")
-    }, 1000)
+    try {
+      const response = await axios.put(`/api/assign-service?id=${serviceRequest._id}`, {
+        status: "completed",
+        notes: "Service completed successfully",
+      })
+
+      if (response.data.success) {
+        setServiceRequest((prev) => (prev ? { ...prev, status: "completed" } : null))
+
+        const newStatus: StatusUpdate = {
+          status: "completed",
+          timestamp: new Date().toLocaleString(),
+          updatedBy: "Current User",
+          notes: "Service completed successfully",
+        }
+
+        setStatusHistory((prev) => [...prev, newStatus])
+        alert("Service marked as completed!")
+      }
+    } catch (error) {
+      console.error("Error completing service:", error)
+      alert("Failed to complete service. Please try again.")
+    }
   }
 
   const getStatusBadge = (status: string) => {
@@ -259,6 +353,59 @@ export default function ServiceRequestDetailPage() {
     }
   }
 
+  const calculateTotalPartsCost = () => {
+    if (!serviceRequest?.parts) return 0
+    return serviceRequest.parts.reduce((sum, part) => {
+      const price = part.partId.price || 0
+      return sum + price * part.quantity
+    }, 0)
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <DashboardHeader />
+        <main className="container mx-auto px-4 py-8">
+          <div className="flex items-center justify-center h-64">
+            <div className="flex items-center gap-2">
+              <Loader2 className="h-6 w-6 animate-spin" />
+              <span className="text-lg">Loading service request details...</span>
+            </div>
+          </div>
+        </main>
+      </div>
+    )
+  }
+
+  if (error || !serviceRequest) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <DashboardHeader />
+        <main className="container mx-auto px-4 py-8">
+          <div className="flex items-center mb-8">
+            <Link href="/service-requests">
+              <Button variant="ghost" size="icon" className="mr-2">
+                <ArrowLeft className="h-5 w-5" />
+              </Button>
+            </Link>
+            <h1 className="text-3xl font-bold text-gray-900">Service Request Not Found</h1>
+          </div>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="text-center">
+                <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+                <p className="text-gray-600">{error || "The requested service request could not be found."}</p>
+                <Link href="/service-requests">
+                  <Button className="mt-4">Return to Service Requests</Button>
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
+        </main>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       <DashboardHeader />
@@ -272,14 +419,14 @@ export default function ServiceRequestDetailPage() {
           </Link>
           <div className="flex-1">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between">
-              <h1 className="text-3xl font-bold text-gray-900">Service Request {serviceRequest.id}</h1>
+              <h1 className="text-3xl font-bold text-gray-900">Service Request {serviceRequest.slug}</h1>
               <div className="flex gap-2 mt-2 md:mt-0">
                 {getStatusBadge(serviceRequest.status)}
-                {getUrgencyBadge(serviceRequest.urgency)}
+                {getUrgencyBadge(serviceRequest.priority)}
               </div>
             </div>
             <p className="text-gray-600">
-              {serviceRequest.tractor} - {serviceRequest.type}
+              {serviceRequest.tractor?.name || "Unknown Tractor"} - {serviceRequest.maintenanceTask || "Service"}
             </p>
           </div>
         </div>
@@ -287,12 +434,11 @@ export default function ServiceRequestDetailPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-8">
-              <TabsList className="grid w-full grid-cols-5 mb-4">
+              <TabsList className="grid w-full grid-cols-4 mb-4">
                 <TabsTrigger value="details">Details</TabsTrigger>
                 <TabsTrigger value="status">Status</TabsTrigger>
                 <TabsTrigger value="messages">Messages</TabsTrigger>
                 <TabsTrigger value="parts">Parts & Costs</TabsTrigger>
-                <TabsTrigger value="documents">Documents</TabsTrigger>
               </TabsList>
 
               <TabsContent value="details">
@@ -307,19 +453,19 @@ export default function ServiceRequestDetailPage() {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                           <p className="text-sm text-gray-500">Request Type</p>
-                          <p className="font-medium">{serviceRequest.type}</p>
+                          <p className="font-medium">{serviceRequest.maintenanceTask || "Service Request"}</p>
                         </div>
                         <div>
                           <p className="text-sm text-gray-500">Date Submitted</p>
-                          <p className="font-medium">{serviceRequest.date}</p>
+                          <p className="font-medium">{new Date(serviceRequest.createdAt).toLocaleDateString()}</p>
                         </div>
                         <div>
-                          <p className="text-sm text-gray-500">Created By</p>
-                          <p className="font-medium">{serviceRequest.createdBy}</p>
+                          <p className="text-sm text-gray-500">Priority</p>
+                          <p className="font-medium capitalize">{serviceRequest.priority}</p>
                         </div>
                         <div>
                           <p className="text-sm text-gray-500">Last Updated</p>
-                          <p className="font-medium">{serviceRequest.updatedAt}</p>
+                          <p className="font-medium">{new Date(serviceRequest.updatedAt).toLocaleDateString()}</p>
                         </div>
                       </div>
                     </div>
@@ -329,6 +475,12 @@ export default function ServiceRequestDetailPage() {
                     <div>
                       <h3 className="text-lg font-medium mb-2">Description</h3>
                       <p className="text-gray-700">{serviceRequest.description}</p>
+                      {serviceRequest.commonProblem && (
+                        <div className="mt-2">
+                          <p className="text-sm text-gray-500">Common Problem</p>
+                          <p className="text-gray-700">{serviceRequest.commonProblem}</p>
+                        </div>
+                      )}
                     </div>
 
                     <Separator />
@@ -337,88 +489,76 @@ export default function ServiceRequestDetailPage() {
                       <h3 className="text-lg font-medium mb-2">Tractor Information</h3>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                          <p className="text-sm text-gray-500">Tractor Model</p>
-                          <p className="font-medium">{serviceRequest.tractor}</p>
+                          <p className="text-sm text-gray-500">Tractor Name</p>
+                          <p className="font-medium">{serviceRequest.tractor?.name || "Unknown"}</p>
                         </div>
                         <div>
                           <p className="text-sm text-gray-500">Tractor ID</p>
-                          <p className="font-medium">{serviceRequest.tractorId}</p>
+                          <p className="font-medium">{serviceRequest.tractor?.tractorId || "N/A"}</p>
                         </div>
                         <div>
                           <p className="text-sm text-gray-500">Location</p>
-                          <p className="font-medium">{serviceRequest.location}</p>
+                          <p className="font-medium">{serviceRequest.tractor?.location || "Not specified"}</p>
                         </div>
                       </div>
                     </div>
 
-                    <Separator />
-
-                    <div>
-                      <h3 className="text-lg font-medium mb-2">Owner Information</h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <p className="text-sm text-gray-500">Name</p>
-                          <p className="font-medium">{serviceRequest.owner.name}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm text-gray-500">Email</p>
-                          <p className="font-medium">{serviceRequest.owner.email}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm text-gray-500">Phone</p>
-                          <p className="font-medium">{serviceRequest.owner.phone}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm text-gray-500">Location</p>
-                          <p className="font-medium">{serviceRequest.owner.location}</p>
-                        </div>
-                      </div>
-                    </div>
-
-                    {serviceRequest.assignedTo && (
+                    {serviceRequest.technicianId && (
                       <>
                         <Separator />
-
                         <div>
                           <h3 className="text-lg font-medium mb-2">Assigned Technician</h3>
                           <div className="flex items-start gap-4">
                             <Avatar className="h-12 w-12">
                               <AvatarImage
                                 src="/placeholder.svg?height=48&width=48"
-                                alt={serviceRequest.assignedTo.name}
+                                alt={`${serviceRequest.technicianId.firstName} ${serviceRequest.technicianId.lastName}`}
                               />
                               <AvatarFallback className="bg-orange-100 text-orange-800">
-                                {serviceRequest.assignedTo.name
-                                  .split(" ")
-                                  .map((n) => n[0])
-                                  .join("")}
+                                {serviceRequest.technicianId.firstName?.[0]}
+                                {serviceRequest.technicianId.lastName?.[0]}
                               </AvatarFallback>
                             </Avatar>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1">
                               <div>
                                 <p className="text-sm text-gray-500">Name</p>
-                                <p className="font-medium">{serviceRequest.assignedTo.name}</p>
+                                <p className="font-medium">
+                                  {serviceRequest.technicianId.firstName} {serviceRequest.technicianId.lastName}
+                                </p>
                               </div>
                               <div>
                                 <p className="text-sm text-gray-500">Specialization</p>
-                                <p className="font-medium">{serviceRequest.assignedTo.specialization}</p>
+                                <p className="font-medium">{serviceRequest.technicianId.specialty || "General"}</p>
                               </div>
                               <div>
                                 <p className="text-sm text-gray-500">Phone</p>
-                                <p className="font-medium">{serviceRequest.assignedTo.phone}</p>
+                                <p className="font-medium">{serviceRequest.technicianId.phoneNumber || "N/A"}</p>
                               </div>
                               <div>
                                 <p className="text-sm text-gray-500">Email</p>
-                                <p className="font-medium">{serviceRequest.assignedTo.email}</p>
+                                <p className="font-medium">{serviceRequest.technicianId.email || "N/A"}</p>
                               </div>
                             </div>
                           </div>
                         </div>
                       </>
                     )}
+
+                    {serviceRequest.notes && (
+                      <>
+                        <Separator />
+                        <div>
+                          <h3 className="text-lg font-medium mb-2">Additional Notes</h3>
+                          <p className="text-gray-700">{serviceRequest.notes}</p>
+                        </div>
+                      </>
+                    )}
                   </CardContent>
                   <CardFooter className="flex justify-between">
-                    <Button variant="outline" onClick={() => router.push(`/tractor/${serviceRequest.tractorId}`)}>
+                    <Button
+                      variant="outline"
+                      onClick={() => router.push(`/tractor/${serviceRequest.tractor?.tractorId}`)}
+                    >
                       <Tractor className="mr-2 h-4 w-4" />
                       View Tractor Details
                     </Button>
@@ -440,9 +580,9 @@ export default function ServiceRequestDetailPage() {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-8">
-                      {serviceRequest.statusHistory.map((status, index) => (
+                      {statusHistory.map((status, index) => (
                         <div key={index} className="relative pl-8 pb-8">
-                          {index !== serviceRequest.statusHistory.length - 1 && (
+                          {index !== statusHistory.length - 1 && (
                             <div className="absolute top-0 left-3 h-full w-px bg-gray-200" />
                           )}
                           <div className="absolute top-0 left-0 h-6 w-6 rounded-full bg-orange-100 border-2 border-orange-500 flex items-center justify-center">
@@ -452,7 +592,7 @@ export default function ServiceRequestDetailPage() {
                             {status.status === "completed" && <CheckCircle className="h-3 w-3 text-orange-500" />}
                           </div>
                           <div className="flex flex-col md:flex-row md:items-center md:justify-between">
-                            <h4 className="font-medium capitalize">{status.status}</h4>
+                            <h4 className="font-medium capitalize">{status.status.replace("-", " ")}</h4>
                             <p className="text-sm text-gray-500">{status.timestamp}</p>
                           </div>
                           <p className="text-sm text-gray-600 mt-1">Updated by: {status.updatedBy}</p>
@@ -497,7 +637,7 @@ export default function ServiceRequestDetailPage() {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-6 max-h-[500px] overflow-y-auto mb-6 p-1">
-                      {serviceRequest.messages.map((message) => (
+                      {messages.map((message) => (
                         <div key={message.id} className="flex gap-4">
                           <Avatar className="h-10 w-10">
                             <AvatarImage src="/placeholder.svg?height=40&width=40" alt={message.sender} />
@@ -565,53 +705,52 @@ export default function ServiceRequestDetailPage() {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-6">
-                      <div>
-                        <h3 className="text-lg font-medium mb-4">Required Parts</h3>
-                        <div className="overflow-x-auto">
-                          <table className="w-full border-collapse">
-                            <thead>
-                              <tr className="border-b">
-                                <th className="text-left py-3 px-4">Part Name</th>
-                                <th className="text-left py-3 px-4">Quantity</th>
-                                <th className="text-left py-3 px-4">Status</th>
-                                <th className="text-right py-3 px-4">Cost</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {serviceRequest.partsNeeded.map((part) => (
-                                <tr key={part.id} className="border-b">
-                                  <td className="py-3 px-4">{part.name}</td>
-                                  <td className="py-3 px-4">{part.quantity}</td>
-                                  <td className="py-3 px-4">
-                                    <Badge
-                                      className={
-                                        part.status === "In Stock"
-                                          ? "bg-green-500"
-                                          : part.status === "Ordered"
-                                            ? "bg-blue-500"
-                                            : "bg-amber-500"
-                                      }
-                                    >
-                                      {part.status}
-                                    </Badge>
-                                  </td>
-                                  <td className="py-3 px-4 text-right">${part.cost.toFixed(2)}</td>
+                      {serviceRequest.parts && serviceRequest.parts.length > 0 ? (
+                        <div>
+                          <h3 className="text-lg font-medium mb-4">Required Parts</h3>
+                          <div className="overflow-x-auto">
+                            <table className="w-full border-collapse">
+                              <thead>
+                                <tr className="border-b">
+                                  <th className="text-left py-3 px-4">Part Name</th>
+                                  <th className="text-left py-3 px-4">Part Number</th>
+                                  <th className="text-left py-3 px-4">Quantity</th>
+                                  <th className="text-right py-3 px-4">Unit Price</th>
+                                  <th className="text-right py-3 px-4">Total</th>
                                 </tr>
-                              ))}
-                            </tbody>
-                            <tfoot>
-                              <tr className="border-t-2">
-                                <td className="py-3 px-4 font-medium" colSpan={3}>
-                                  Parts Subtotal
-                                </td>
-                                <td className="py-3 px-4 text-right font-medium">
-                                  ${serviceRequest.partsNeeded.reduce((sum, part) => sum + part.cost, 0).toFixed(2)}
-                                </td>
-                              </tr>
-                            </tfoot>
-                          </table>
+                              </thead>
+                              <tbody>
+                                {serviceRequest.parts.map((part, index) => (
+                                  <tr key={part.partId._id || index} className="border-b">
+                                    <td className="py-3 px-4">{part.partId.partName}</td>
+                                    <td className="py-3 px-4">{part.partId.partNumber}</td>
+                                    <td className="py-3 px-4">{part.quantity}</td>
+                                    <td className="py-3 px-4 text-right">${(part.partId.price || 0).toFixed(2)}</td>
+                                    <td className="py-3 px-4 text-right">
+                                      ${((part.partId.price || 0) * part.quantity).toFixed(2)}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                              <tfoot>
+                                <tr className="border-t-2">
+                                  <td className="py-3 px-4 font-medium" colSpan={4}>
+                                    Parts Subtotal
+                                  </td>
+                                  <td className="py-3 px-4 text-right font-medium">
+                                    ${calculateTotalPartsCost().toFixed(2)}
+                                  </td>
+                                </tr>
+                              </tfoot>
+                            </table>
+                          </div>
                         </div>
-                      </div>
+                      ) : (
+                        <div className="text-center py-8">
+                          <Package className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                          <p className="text-gray-500">No parts specified for this service request</p>
+                        </div>
+                      )}
 
                       <Separator />
 
@@ -621,9 +760,7 @@ export default function ServiceRequestDetailPage() {
                           <div className="grid grid-cols-2 gap-4">
                             <div>
                               <p className="text-sm text-gray-500">Parts Cost</p>
-                              <p className="font-medium">
-                                ${serviceRequest.partsNeeded.reduce((sum, part) => sum + part.cost, 0).toFixed(2)}
-                              </p>
+                              <p className="font-medium">${calculateTotalPartsCost().toFixed(2)}</p>
                             </div>
                             <div>
                               <p className="text-sm text-gray-500">Labor Cost</p>
@@ -641,7 +778,7 @@ export default function ServiceRequestDetailPage() {
                           <Separator className="my-4" />
                           <div className="flex justify-between">
                             <p className="font-medium">Estimated Total</p>
-                            <p className="font-medium">${serviceRequest.estimatedCost.toFixed(2)}</p>
+                            <p className="font-medium">${(calculateTotalPartsCost() + 175 + 25 + 25.45).toFixed(2)}</p>
                           </div>
                           {serviceRequest.actualCost && (
                             <div className="flex justify-between mt-2">
@@ -649,86 +786,6 @@ export default function ServiceRequestDetailPage() {
                               <p className="font-medium">${serviceRequest.actualCost}</p>
                             </div>
                           )}
-                        </div>
-                      </div>
-
-                      <Separator />
-
-                      <div>
-                        <h3 className="text-lg font-medium mb-4">Payment Status</h3>
-                        <div className="flex items-center justify-between bg-gray-50 p-4 rounded-lg">
-                          <div className="flex items-center gap-3">
-                            <DollarSign className="h-5 w-5 text-orange-500" />
-                            <div>
-                              <p className="font-medium">Payment Status</p>
-                              <p className="text-sm text-gray-500">{serviceRequest.paymentStatus}</p>
-                            </div>
-                          </div>
-                          {serviceRequest.status === "completed" && serviceRequest.paymentStatus === "Pending" && (
-                            <Button className="bg-orange-500 hover:bg-orange-600">Process Payment</Button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              <TabsContent value="documents">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Documents</CardTitle>
-                    <CardDescription>Files and documents related to this service request</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-6">
-                      <div className="overflow-x-auto">
-                        <table className="w-full border-collapse">
-                          <thead>
-                            <tr className="border-b">
-                              <th className="text-left py-3 px-4">Document Name</th>
-                              <th className="text-left py-3 px-4">Type</th>
-                              <th className="text-left py-3 px-4">Size</th>
-                              <th className="text-left py-3 px-4">Uploaded By</th>
-                              <th className="text-left py-3 px-4">Date</th>
-                              <th className="text-right py-3 px-4">Actions</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {serviceRequest.documents.map((doc) => (
-                              <tr key={doc.id} className="border-b">
-                                <td className="py-3 px-4">
-                                  <div className="flex items-center gap-2">
-                                    <FileText className="h-4 w-4 text-orange-500" />
-                                    <span>{doc.name}</span>
-                                  </div>
-                                </td>
-                                <td className="py-3 px-4">{doc.type.split("/")[1].toUpperCase()}</td>
-                                <td className="py-3 px-4">{doc.size}</td>
-                                <td className="py-3 px-4">{doc.uploadedBy}</td>
-                                <td className="py-3 px-4">{doc.uploadedAt}</td>
-                                <td className="py-3 px-4 text-right">
-                                  <Button variant="ghost" size="sm">
-                                    View
-                                  </Button>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-
-                      <div className="pt-4">
-                        <h3 className="text-lg font-medium mb-4">Upload Document</h3>
-                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-                          <Paperclip className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                          <p className="text-sm text-gray-500 mb-4">
-                            Drag and drop files here, or click to select files
-                          </p>
-                          <Input id="file-upload" type="file" className="hidden" />
-                          <Label htmlFor="file-upload" asChild>
-                            <Button variant="outline">Select Files</Button>
-                          </Label>
                         </div>
                       </div>
                     </div>
@@ -757,7 +814,7 @@ export default function ServiceRequestDetailPage() {
                     <AlertTriangle className="h-4 w-4 text-gray-500" />
                     <span className="text-sm text-gray-500">Priority</span>
                   </div>
-                  {getUrgencyBadge(serviceRequest.urgency)}
+                  {getUrgencyBadge(serviceRequest.priority)}
                 </div>
 
                 <div className="flex items-center justify-between">
@@ -765,15 +822,7 @@ export default function ServiceRequestDetailPage() {
                     <Calendar className="h-4 w-4 text-gray-500" />
                     <span className="text-sm text-gray-500">Submitted</span>
                   </div>
-                  <span>{serviceRequest.date}</span>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4 text-gray-500" />
-                    <span className="text-sm text-gray-500">Est. Completion</span>
-                  </div>
-                  <span>{serviceRequest.estimatedCompletion}</span>
+                  <span>{new Date(serviceRequest.createdAt).toLocaleDateString()}</span>
                 </div>
 
                 <Separator />
@@ -783,33 +832,19 @@ export default function ServiceRequestDetailPage() {
                     <Tractor className="h-4 w-4 text-gray-500" />
                     <span className="text-sm text-gray-500">Tractor</span>
                   </div>
-                  <span>{serviceRequest.tractor}</span>
+                  <span>{serviceRequest.tractor?.name || "Unknown"}</span>
                 </div>
-
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <User className="h-4 w-4 text-gray-500" />
-                    <span className="text-sm text-gray-500">Owner</span>
-                  </div>
-                  <span>{serviceRequest.owner.name}</span>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <MapPin className="h-4 w-4 text-gray-500" />
-                    <span className="text-sm text-gray-500">Location</span>
-                  </div>
-                  <span>{serviceRequest.owner.location}</span>
-                </div>
-
-                <Separator />
 
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Tool className="h-4 w-4 text-gray-500" />
                     <span className="text-sm text-gray-500">Technician</span>
                   </div>
-                  <span>{serviceRequest.assignedTo?.name || "Unassigned"}</span>
+                  <span>
+                    {serviceRequest.technicianId
+                      ? `${serviceRequest.technicianId.firstName} ${serviceRequest.technicianId.lastName}`
+                      : "Unassigned"}
+                  </span>
                 </div>
 
                 <div className="flex items-center justify-between">
@@ -817,7 +852,7 @@ export default function ServiceRequestDetailPage() {
                     <Package className="h-4 w-4 text-gray-500" />
                     <span className="text-sm text-gray-500">Parts Required</span>
                   </div>
-                  <span>{serviceRequest.partsNeeded.length}</span>
+                  <span>{serviceRequest.parts?.length || 0}</span>
                 </div>
 
                 <div className="flex items-center justify-between">
@@ -825,7 +860,7 @@ export default function ServiceRequestDetailPage() {
                     <DollarSign className="h-4 w-4 text-gray-500" />
                     <span className="text-sm text-gray-500">Est. Cost</span>
                   </div>
-                  <span>${serviceRequest.estimatedCost.toFixed(2)}</span>
+                  <span>${(calculateTotalPartsCost() + 175 + 25 + 25.45).toFixed(2)}</span>
                 </div>
               </CardContent>
               <CardFooter className="flex flex-col gap-2">
@@ -842,7 +877,7 @@ export default function ServiceRequestDetailPage() {
               </CardFooter>
             </Card>
 
-            {serviceRequest.assignedTo && (
+            {serviceRequest.technicianId && (
               <Card>
                 <CardHeader>
                   <CardTitle>Assigned Technician</CardTitle>
@@ -850,38 +885,20 @@ export default function ServiceRequestDetailPage() {
                 <CardContent>
                   <div className="flex items-center gap-4">
                     <Avatar className="h-12 w-12">
-                      <AvatarImage src="/placeholder.svg?height=48&width=48" alt={serviceRequest.assignedTo.name} />
+                      <AvatarImage
+                        src="/placeholder.svg?height=48&width=48"
+                        alt={`${serviceRequest.technicianId.firstName} ${serviceRequest.technicianId.lastName}`}
+                      />
                       <AvatarFallback className="bg-orange-100 text-orange-800">
-                        {serviceRequest.assignedTo.name
-                          .split(" ")
-                          .map((n) => n[0])
-                          .join("")}
+                        {serviceRequest.technicianId.firstName?.[0]}
+                        {serviceRequest.technicianId.lastName?.[0]}
                       </AvatarFallback>
                     </Avatar>
                     <div>
-                      <p className="font-medium">{serviceRequest.assignedTo.name}</p>
-                      <p className="text-sm text-gray-500">{serviceRequest.assignedTo.specialization}</p>
-                      <div className="flex items-center mt-1">
-                        <div className="flex">
-                          {[...Array(5)].map((_, i) => (
-                            <svg
-                              key={i}
-                              className={`h-4 w-4 ${
-                                i < Math.floor(serviceRequest.assignedTo.rating) ? "text-yellow-400" : "text-gray-300"
-                              }`}
-                              fill="currentColor"
-                              viewBox="0 0 20 20"
-                            >
-                              <path
-                                fillRule="evenodd"
-                                d="M10 15.934l-6.18 3.254 1.18-6.875L.11 7.695l6.9-1.004L10 .5l3.09 6.191 6.9 1.004-4.89 4.618 1.18 6.875L10 15.934z"
-                                clipRule="evenodd"
-                              />
-                            </svg>
-                          ))}
-                        </div>
-                        <span className="ml-1 text-sm text-gray-500">{serviceRequest.assignedTo.rating}/5</span>
-                      </div>
+                      <p className="font-medium">
+                        {serviceRequest.technicianId.firstName} {serviceRequest.technicianId.lastName}
+                      </p>
+                      <p className="text-sm text-gray-500">{serviceRequest.technicianId.specialty || "General"}</p>
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4 mt-4">
@@ -904,7 +921,7 @@ export default function ServiceRequestDetailPage() {
               </CardHeader>
               <CardContent className="space-y-2">
                 <Button variant="outline" className="w-full justify-start" asChild>
-                  <Link href={`/tractor/${serviceRequest.tractorId}`}>
+                  <Link href={`/tractor/${serviceRequest.tractor?.tractorId}`}>
                     <Tractor className="mr-2 h-4 w-4" />
                     View Tractor Details
                   </Link>
